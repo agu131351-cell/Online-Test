@@ -106,6 +106,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
       <div class="who">
         <div class="field"><label for="sname">Name</label><input id="sname" autocomplete="name" placeholder="Taro Yamada"></div>
         <div class="field"><label for="sid">Student number</label><input id="sid" placeholder="e.g. 2512345" inputmode="numeric"></div>
+        <div class="field"><label for="semail">Reitaku email</label><input id="semail" type="email" autocomplete="email" placeholder="xxxxx@reitaku-u.ac.jp"></div>
       </div>
     </section>
     <div id="lessons" class="wrap" style="max-width:none"></div>
@@ -250,8 +251,9 @@ function setLocked(on){ document.querySelectorAll("#lessons input,#lessons selec
 const submitBtn = document.getElementById("submit"), retryBtn = document.getElementById("retry"), resultEl = document.getElementById("result");
 function showError(msg){ resultEl.hidden=false; resultEl.innerHTML=`<p class="note err">${esc(msg)}</p>`; }
 submitBtn.addEventListener("click", ()=>{
-  const name = document.getElementById("sname").value.trim(), sid = document.getElementById("sid").value.trim();
+  const name = document.getElementById("sname").value.trim(), sid = document.getElementById("sid").value.trim(), email = document.getElementById("semail").value.trim();
   if(!name || !sid){ showError("Please type your name and student number at the top before you submit."); document.getElementById(!name?"sname":"sid").focus(); return; }
+  if(!/^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i.test(email)){ showError("Please type your Reitaku University email (…@reitaku-u.ac.jp) at the top."); document.getElementById("semail").focus(); return; }
   const blanks = TOTAL - answeredCount();
   if(blanks>0 && submitBtn.dataset.confirm!=="1"){
     submitBtn.dataset.confirm="1"; submitBtn.textContent=`Submit with ${blanks} blank${blanks>1?"s":""}?`;
@@ -261,7 +263,7 @@ submitBtn.addEventListener("click", ()=>{
   const answers = {}; ORDER.forEach(id=>answers[id]=getVal(id));
   const fail = msg => { setLocked(false); submitBtn.disabled=false; submitBtn.textContent="Submit"; showError(msg); };
   if(!API_URL || API_URL.indexOf("script.google.com")<0){ fail("This quiz isn't connected to the score sheet yet. Please tell your teacher."); return; }
-  fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({name, studentNo: sid, answers})})
+  fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({name, studentNo: sid, email, answers})})
     .then(res=>res.json())
     .then(r=>{
       if(!r || r.error){ fail(r && r.error ? r.error : "Your answers were not sent. Press Submit again."); return; }

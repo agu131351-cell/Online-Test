@@ -106,7 +106,7 @@ td.blank-ans{color:var(--muted)}
             <option value="latest">Latest attempt (最新)</option>
             <option value="all">All attempts (すべて)</option>
           </select></div>
-        <div class="field" style="flex:1;min-width:180px"><label for="q">Search</label><input id="q" type="search" placeholder="Name or student no."></div>
+        <div class="field" style="flex:1;min-width:180px"><label for="q">Search</label><input id="q" type="search" placeholder="Name, student no. or email"></div>
         <button class="btn ghost" id="refresh">↻ Refresh</button>
         <button class="btn ghost" id="csv">⬇ CSV</button>
         <button class="btn ghost" id="logout">Log out</button>
@@ -188,7 +188,7 @@ function visible(){
     });
     subs = Object.values(by);
   }
-  if(q) subs = subs.filter(s=>(s.name+" "+s.studentNo).toLowerCase().includes(q));
+  if(q) subs = subs.filter(s=>(s.name+" "+s.studentNo+" "+(s.email||"")).toLowerCase().includes(q));
   return subs;
 }
 
@@ -214,14 +214,14 @@ function fmtTime(t){ const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocal
 
 function renderRoster(subs){
   const secKeys = Object.keys(DATA.secs);
-  const cols = [["studentNo","Student no",0],["name","Name",0],["attempt","Try",1],["score","Score",1]]
+  const cols = [["studentNo","Student no",0],["name","Name",0],["email","Email",0],["attempt","Try",1],["score","Score",1]]
     .concat(secKeys.map(k=>["sec:"+k, DATA.secs[k], 1])).concat([["time","Submitted",0]]);
   const val = (s,k) => k.startsWith("sec:") ? Number(s.sections[k.slice(4)]) : s[k];
   subs.sort((a,b)=>{ const x=val(a,sortKey), y=val(b,sortKey); const c = typeof x==="number" ? x-y : String(x).localeCompare(String(y),"ja",{numeric:true}); return sortDir==="asc"?c:-c; });
   if(!subs.length){ $("#roster").innerHTML = `<div class="empty">まだ提出がありません。No submissions yet.</div>`; $("#detail").hidden=true; return; }
   $("#roster").innerHTML = `<table><thead><tr>${cols.map(([k,l,n])=>`<th class="sort${n?" num":""}" data-k="${k}"${k===sortKey?` data-dir="${sortDir}"`:""}>${esc(l)}</th>`).join("")}</tr></thead><tbody>
     ${subs.map((s,i)=>`<tr class="click${selected===s?" sel":""}" data-i="${i}">
-      <td class="mono">${esc(s.studentNo)}</td><td>${esc(s.name)}</td><td class="num">${s.attempt}</td>
+      <td class="mono">${esc(s.studentNo)}</td><td>${esc(s.name)}</td><td class="mono">${esc(s.email)}</td><td class="num">${s.attempt}</td>
       <td class="num"><b>${s.score}</b> / ${s.total} (${Math.round(s.score/s.total*100)}%)</td>
       ${secKeys.map(k=>`<td class="num">${esc(s.sections[k])}/${DATA.secTotals[k]}</td>`).join("")}
       <td class="mono">${fmtTime(s.time)}</td></tr>`).join("")}</tbody></table>`;
@@ -236,7 +236,7 @@ function renderDetail(s){
   const el = $("#detail");
   if(!s){ el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<h2>${esc(s.name)} <span class="mono">(${esc(s.studentNo)})</span> — ${s.score}/${s.total}, attempt ${s.attempt}</h2>
+  el.innerHTML = `<h2>${esc(s.name)} <span class="mono">(${esc(s.studentNo)}${s.email?" · "+esc(s.email):""})</span> — ${s.score}/${s.total}, attempt ${s.attempt}</h2>
     <div class="detail-grid">${DATA.order.map(id=>`<div class="ans ${s.ok[id]?"ok":"ng"}"><span class="id">${id} ${s.ok[id]?"✓":"✗"}</span>
       <span>${s.answers[id] ? esc(s.answers[id]) : "<i>(blank)</i>"}</span>${s.ok[id]?"":`<span class="k">✓ ${esc(DATA.key[id])}</span>`}</div>`).join("")}</div>`;
 }
@@ -265,8 +265,8 @@ function renderItems(subs){
 /* CSV of what is currently shown: one row per submission, score + every answer */
 $("#csv").addEventListener("click", ()=>{
   const subs = visible(), q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
-  const head = ["Submitted","Student no","Name","Attempt","Score","Total"].concat(DATA.order.map(id=>id)).concat(DATA.order.map(id=>"ok "+id));
-  const lines = [head.map(q).join(",")].concat(subs.map(s=>[fmtTime(s.time),s.studentNo,s.name,s.attempt,s.score,s.total]
+  const head = ["Submitted","Student no","Name","Email","Attempt","Score","Total"].concat(DATA.order.map(id=>id)).concat(DATA.order.map(id=>"ok "+id));
+  const lines = [head.map(q).join(",")].concat(subs.map(s=>[fmtTime(s.time),s.studentNo,s.name,s.email,s.attempt,s.score,s.total]
     .concat(DATA.order.map(id=>s.answers[id])).concat(DATA.order.map(id=>s.ok[id]?1:0)).map(q).join(",")));
   const blob = new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `quiz-results-${$("#mode").value}.csv`; a.click();

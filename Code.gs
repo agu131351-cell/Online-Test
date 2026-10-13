@@ -10,6 +10,9 @@ const ORDER = ["1A2","1A3","1A4","1A5","1A6","1B1","1B2","1B3","1B4","1B5","1B6"
 const KEY = { "1A2": { "accept": [ "eats" ], "display": "eats" }, "1A3": { "accept": [ "play" ], "display": "play" }, "1A4": { "accept": [ "works" ], "display": "works" }, "1A5": { "accept": [ "go" ], "display": "go" }, "1A6": { "accept": [ "stays up" ], "display": "stays up" }, "1B1": { "accept": [ "doesn't drink" ], "display": "doesn't drink" }, "1B2": { "accept": [ "don't stay up" ], "display": "don't stay up" }, "1B3": { "accept": [ "don't work" ], "display": "don't work" }, "1B4": { "accept": [ "don't watch" ], "display": "don't watch" }, "1B5": { "accept": [ "doesn't have" ], "display": "doesn't have" }, "1B6": { "accept": [ "don't play" ], "display": "don't play" }, "1C2": { "accept": [ "don't study" ], "display": "don't study" }, "1C3": { "accept": [ "doesn't play" ], "display": "doesn't play" }, "1C4": { "accept": [ "doesn't watch" ], "display": "doesn't watch" }, "1C5": { "accept": [ "don't eat" ], "display": "don't eat" }, "1C6": { "accept": [ "doesn't cook" ], "display": "doesn't cook" }, "1C7": { "accept": [ "doesn't stay up" ], "display": "doesn't stay up" }, "2A1b": { "accept": [ "don't" ], "display": "don't" }, "2A2a": { "accept": [ "Does" ], "display": "Does" }, "2A2b": { "accept": [ "doesn't" ], "display": "doesn't" }, "2A3a": { "accept": [ "Do" ], "display": "Do" }, "2A3b": { "accept": [ "don't" ], "display": "don't" }, "2A4a": { "accept": [ "Does" ], "display": "Does" }, "2A4b": { "accept": [ "does" ], "display": "does" }, "2A5a": { "accept": [ "Do" ], "display": "Do" }, "2A5b": { "accept": [ "do" ], "display": "do" }, "2A6a": { "accept": [ "Does" ], "display": "Does" }, "2A6b": { "accept": [ "does" ], "display": "does" }, "2B2a": { "accept": [ "Do" ], "display": "Do" }, "2B2b": { "accept": [ "have" ], "display": "have" }, "2B2c": { "accept": [ "Yes, they do" ], "display": "Yes, they do" }, "2B3a": { "accept": [ "Does" ], "display": "Does" }, "2B3b": { "accept": [ "have" ], "display": "have" }, "2B3c": { "accept": [ "No, he doesn't" ], "display": "No, he doesn't" }, "2B3d": { "accept": [ "feels" ], "display": "feels" }, "2B4a": { "accept": [ "Do" ], "display": "Do" }, "2B4b": { "accept": [ "have" ], "display": "have" }, "2B4c": { "accept": [ "Yes, they do" ], "display": "Yes, they do" }, "2B5a": { "accept": [ "Does" ], "display": "Does" }, "2B5b": { "accept": [ "have" ], "display": "have" }, "2B5c": { "accept": [ "No, he doesn't" ], "display": "No, he doesn't" }, "2B5d": { "accept": [ "has" ], "display": "has" }, "3A2": { "accept": [ "Where does" ], "display": "Where does" }, "3A3": { "accept": [ "Where do" ], "display": "Where do" }, "3A4": { "accept": [ "Where do" ], "display": "Where do" }, "3A5": { "accept": [ "Where do" ], "display": "Where do" }, "3A6": { "accept": [ "Where do" ], "display": "Where do" }, "3B2a": { "accept": [ "does" ], "display": "does" }, "3B2b": { "accept": [ "in" ], "display": "in" }, "3B2c": { "accept": [ "on" ], "display": "on" }, "3B3a": { "accept": [ "do" ], "display": "do" }, "3B3b": { "accept": [ "in" ], "display": "in" }, "3B3c": { "accept": [ "on" ], "display": "on" }, "3B4a": { "accept": [ "does" ], "display": "does" }, "3B4b": { "accept": [ "at", "in" ], "display": "at" }, "3B5a": { "accept": [ "do" ], "display": "do" }, "3B5b": { "accept": [ "at", "in", "near" ], "display": "at" }, "3B6a": { "accept": [ "do" ], "display": "do" }, "3B6b": { "accept": [ "at" ], "display": "at" }, "3C2": { "accept": [ "do you get up" ], "display": "do you get up" }, "3C3": { "accept": [ "do your parents come home" ], "display": "do your parents come home" }, "3C4": { "accept": [ "does your husband make dinner", "does he make dinner" ], "display": "does your husband make dinner" }, "3C5": { "accept": [ "do Jeb and Lisa study", "do they study" ], "display": "do Jeb and Lisa study" } };
 const SECS = {"1A":"L1 A","1B":"L1 B","1C":"L1 C","2A":"L2 A","2B":"L2 B","3A":"L3 A","3B":"L3 B","3C":"L3 C"};
 const FIXED = ["Timestamp","Student No","Name","Attempt","Score","Total","Percent"];
+// Email is kept in the last column (after the answers) so sheets made before it was added keep working
+const EMAIL_COL = FIXED.length + Object.keys(SECS).length + ORDER.length * 2 + 1;
+const EMAIL_RE = /^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i; // Reitaku University addresses only
 
 // The quiz page (index.html) sends answers here; the teacher page (teacher.html) asks for results here.
 function doPost(e) {
@@ -60,6 +63,8 @@ function setup() {
     res.setFrozenRows(1);
     res.setFrozenColumns(3);
   }
+  if (res.getMaxColumns() < EMAIL_COL) res.insertColumnsAfter(res.getMaxColumns(), EMAIL_COL - res.getMaxColumns());
+  if (res.getRange(1, EMAIL_COL).getValue() !== "Email") res.getRange(1, EMAIL_COL).setValue("Email").setFontWeight("bold");
   if (!ss.getSheetByName("Summary")) {
     const sum = ss.insertSheet("Summary");
     const attemptCol = "Results!$D$2:$D";
@@ -89,8 +94,10 @@ function setup() {
 function submitQuiz(payload) {
   const name = String(payload && payload.name || "").trim().slice(0, 100);
   const studentNo = String(payload && payload.studentNo || "").trim().slice(0, 40);
+  const email = String(payload && payload.email || "").trim().toLowerCase().slice(0, 120);
   const answers = (payload && payload.answers) || {};
   if (!name || !studentNo) throw new Error("Name and student number are required.");
+  if (!EMAIL_RE.test(email)) throw new Error("Please use your Reitaku University email (…@reitaku-u.ac.jp).");
 
   const results = {}, wrongKey = {}, sections = {};
   let score = 0;
@@ -117,7 +124,8 @@ function submitQuiz(payload) {
     const row = [new Date(), safe_(studentNo), safe_(name), attempt, score, ORDER.length, score / ORDER.length]
       .concat(Object.keys(SECS).map(k => sections[k] ? sections[k][0] : ""))
       .concat(ORDER.map(id => results[id] ? 1 : 0))
-      .concat(ORDER.map(id => safe_(String(answers[id] || "").slice(0, 200))));
+      .concat(ORDER.map(id => safe_(String(answers[id] || "").slice(0, 200))))
+      .concat([email]);
     // Student number stays text (keeps leading zeros) and percent shows as %
     res.appendRow(row);
     const r = res.getLastRow();
@@ -147,7 +155,7 @@ function getResults(payload) {
   const nSec = Object.keys(SECS).length;
   const okStart = FIXED.length + nSec;         // 0-based index of the first "✓" column
   const ansStart = okStart + ORDER.length;      // 0-based index of the first "ans" column
-  const rows = last > 1 ? res.getRange(2, 1, last - 1, ansStart + ORDER.length).getValues() : [];
+  const rows = last > 1 ? res.getRange(2, 1, last - 1, EMAIL_COL).getValues() : [];
   const unq = v => typeof v === "string" && v.charAt(0) === "'" ? v.slice(1) : v; // undo safe_()
 
   const subs = rows.filter(r => r[1] !== "" || r[2] !== "").map(r => {
@@ -157,7 +165,7 @@ function getResults(payload) {
     Object.keys(SECS).forEach((k, i) => { sections[k] = r[FIXED.length + i]; });
     return {
       time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]),
-      studentNo: String(unq(r[1])), name: String(unq(r[2])),
+      studentNo: String(unq(r[1])), name: String(unq(r[2])), email: String(r[EMAIL_COL - 1] || ""),
       attempt: Number(r[3]), score: Number(r[4]), total: Number(r[5]),
       sections: sections, ok: ok, answers: ans
     };
