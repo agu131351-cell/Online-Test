@@ -98,7 +98,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   <header>
     <div class="eyebrow">StartUp Level 1 · Unit 6 · Grammar Practice</div>
     <h1>Simple Present: Statements &amp; Questions</h1>
-    <p class="instr">Three short lessons, 63 points. Type or choose your answers, then press <b>Submit</b> at the bottom. Your score is sent to your teacher.</p>
+    <p class="instr">Three short lessons, 63 points. Type or choose your answers, then press <b>Submit</b> at the bottom. Your score is sent to your teacher. <b>You can submit only once</b> (受験は1回のみ).</p>
   </header>
 
   <div id="quiz-view" class="wrap" style="max-width:none">
@@ -116,7 +116,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 
 <div class="bar"><div class="bar-in">
   <div class="meter"><span id="prog-txt">0 / 63 answered</span><i><b id="prog"></b></i></div>
-  <div class="row-actions"><button class="btn ghost" id="retry" hidden>Try again</button><button class="btn" id="submit">Submit</button></div>
+  <div class="row-actions"><button class="btn" id="submit">Submit</button></div>
 </div></div>
 
 <script src="config.js"></script>
@@ -248,7 +248,7 @@ function clearMarks(){
 }
 function setLocked(on){ document.querySelectorAll("#lessons input,#lessons select").forEach(e=>e.disabled=on); }
 
-const submitBtn = document.getElementById("submit"), retryBtn = document.getElementById("retry"), resultEl = document.getElementById("result");
+const submitBtn = document.getElementById("submit"), resultEl = document.getElementById("result");
 function showError(msg){ resultEl.hidden=false; resultEl.innerHTML=`<p class="note err">${esc(msg)}</p>`; }
 submitBtn.addEventListener("click", ()=>{
   const name = document.getElementById("sname").value.trim(), sid = document.getElementById("sid").value.trim(), email = document.getElementById("semail").value.trim();
@@ -266,6 +266,11 @@ submitBtn.addEventListener("click", ()=>{
   fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({name, studentNo: sid, email, answers})})
     .then(res=>res.json())
     .then(r=>{
+      if(r && r.done){
+        resultEl.hidden=false;
+        resultEl.innerHTML = `<span class="eyebrow">終了済み · Finished</span><h2>このテストは既に提出済みです</h2><p class="note err">${esc(r.error)}</p><p class="note">もう一度受けることはできません。間違いだと思う場合は先生に連絡してください。<br>You can take this quiz only once. If this is a mistake, please tell your teacher.</p>`;
+        submitBtn.hidden=true; resultEl.scrollIntoView({block:"start"}); return;
+      }
       if(!r || r.error){ fail(r && r.error ? r.error : "Your answers were not sent. Press Submit again."); return; }
       showMarks(r.results, r.key);
       resultEl.hidden=false;
@@ -273,20 +278,13 @@ submitBtn.addEventListener("click", ()=>{
         <span class="eyebrow">Your score</span>
         <div class="score-big">${r.score}<small> / ${r.total}</small></div>
         <div class="chips">${Object.entries(r.sections).map(([k,[a,b]])=>`<span class="chip">${SECS[k]} · ${a}/${b}</span>`).join("")}</div>
-        <p class="note ok">Sent to your teacher (attempt ${r.attempt}).</p>
+        <p class="note ok">Sent to your teacher. 提出しました（受験は1回のみです）。</p>
         <p class="note">Wrong answers are marked in red with the correct answer beside them.</p>`;
-      submitBtn.hidden=true; retryBtn.hidden=false; submitBtn.disabled=false; submitBtn.textContent="Submit";
+      submitBtn.hidden=true; submitBtn.disabled=false; submitBtn.textContent="Submit";
+      document.querySelectorAll(".who input").forEach(e=>e.disabled=true);
       resultEl.scrollIntoView({block:"start"});
     })
     .catch(()=>fail("Your answers were not sent. Check your internet connection and press Submit again."));
-});
-retryBtn.addEventListener("click", ()=>{
-  clearMarks(); setLocked(false);
-  document.querySelectorAll("#lessons input.blank").forEach(e=>e.value="");
-  document.querySelectorAll("#lessons select").forEach(e=>e.value="");
-  document.querySelectorAll("#lessons input[type=radio]").forEach(e=>e.checked=false);
-  resultEl.hidden=true; retryBtn.hidden=true; submitBtn.hidden=false; updateProgress();
-  window.scrollTo({top:0});
 });
 </script>
 </body>

@@ -113,14 +113,13 @@ function submitQuiz(payload) {
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
-  let attempt = 1;
+  const attempt = 1;
   try {
     const res = setup();
-    const last = res.getLastRow();
-    if (last > 1) {
-      const ids = res.getRange(2, 2, last - 1, 1).getValues();
-      attempt = 1 + ids.filter(r => String(r[0]).trim() === studentNo).length;
-    }
+    // One submission per student: refuse if the name, student number OR email was already used.
+    // To let a student retake, delete their row on the Results sheet.
+    const done = findSubmitted_(res, name, studentNo, email);
+    if (done) return { done: true, error: "終了済みです。この" + done[0] + "では既に提出されています。 / Already submitted (same " + done[1] + ")." };
     const row = [new Date(), safe_(studentNo), safe_(name), attempt, score, ORDER.length, score / ORDER.length]
       .concat(Object.keys(SECS).map(k => sections[k] ? sections[k][0] : ""))
       .concat(ORDER.map(id => results[id] ? 1 : 0))
@@ -135,6 +134,21 @@ function submitQuiz(payload) {
     lock.releaseLock();
   }
   return { score: score, total: ORDER.length, results: results, key: wrongKey, sections: sections, attempt: attempt };
+}
+
+const key_ = v => String(v || "").replace(/^'/, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** Returns [Japanese, English] name of the field that matched an earlier submission, or null if none. */
+function findSubmitted_(res, name, studentNo, email) {
+  const last = res.getLastRow();
+  if (last < 2) return null;
+  const nos = res.getRange(2, 2, last - 1, 2).getValues();        // Student No, Name
+  const mails = res.getRange(2, EMAIL_COL, last - 1, 1).getValues();
+  const n = key_(name), no = key_(studentNo), em = key_(email);
+  if (nos.some(r => key_(r[0]) === no)) return ["学生番号", "student number"];
+  if (mails.some(r => key_(r[0]) === em)) return ["メールアドレス", "email"];
+  if (nos.some(r => key_(r[1]) === n)) return ["名前", "name"];
+  return null;
 }
 
 /**
