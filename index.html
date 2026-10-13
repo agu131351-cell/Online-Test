@@ -90,6 +90,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .hbar.low{background:var(--bad)}
 .empty{padding:28px;text-align:center;color:var(--muted);border:1.5px dashed var(--rule);border-radius:8px}
 .row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rules{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px;font-size:15px}
+.timer{font:700 22px var(--mono);font-variant-numeric:tabular-nums}
+.timer.low{color:var(--bad)}
+[hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -98,7 +102,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   <header>
     <div class="eyebrow">StartUp Level 1 · Unit 6 · Grammar Practice</div>
     <h1>Simple Present: Statements &amp; Questions</h1>
-    <p class="instr">Three short lessons, 63 points. Type or choose your answers, then press <b>Submit</b> at the bottom. Your score is sent to your teacher. <b>You can submit only once</b> (受験は1回のみ).</p>
+    <p class="instr">Three short lessons, 63 points. Type your name, student number and email, then press <b>Start</b>. Answer the questions and press <b>Submit</b> at the bottom. Your score is sent to your teacher.</p>
   </header>
 
   <div id="quiz-view" class="wrap" style="max-width:none">
@@ -108,14 +112,22 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="field"><label for="sid">Student number</label><input id="sid" placeholder="e.g. 2512345" inputmode="numeric"></div>
         <div class="field"><label for="semail">Reitaku email</label><input id="semail" type="email" autocomplete="email" placeholder="xxxxx@reitaku-u.ac.jp"></div>
       </div>
+      <ul class="rules">
+        <li><b>受験は1回のみ</b> · You can take this test only once.</li>
+        <li><b>制限時間 <span class="limit">30</span> 分</b>。Start を押すと時間が始まり、時間になると自動で提出されます。 · <span class="limit">30</span> minutes. When time is up, your answers are sent automatically.</li>
+        <li><b>テスト中に他のタブやアプリに切り替えると、先生に記録されます。</b> · Leaving this page (other tabs or apps) is recorded and your teacher can see it.</li>
+      </ul>
+      <div class="row-actions"><button class="btn" id="start">Start</button></div>
+      <p class="note err" id="start-msg" hidden></p>
     </section>
-    <div id="lessons" class="wrap" style="max-width:none"></div>
+    <div id="lessons" class="wrap" style="max-width:none" hidden></div>
     <section class="sheet result" id="result" hidden></section>
   </div>
 </div>
 
-<div class="bar"><div class="bar-in">
+<div class="bar" id="bar" hidden><div class="bar-in">
   <div class="meter"><span id="prog-txt">0 / 63 answered</span><i><b id="prog"></b></i></div>
+  <div class="timer" id="timer" aria-live="off">--:--</div>
   <div class="row-actions"><button class="btn" id="submit">Submit</button></div>
 </div></div>
 
@@ -234,57 +246,92 @@ document.getElementById("lessons").addEventListener("input", updateProgress);
 document.getElementById("lessons").addEventListener("change", updateProgress);
 updateProgress();
 
-function markEl(id){ return KIND[id]==="p" ? document.querySelector(`.pick[data-id="${id}"]`) : document.getElementById(id); }
-function showMarks(results, key){
-  document.querySelectorAll(".key").forEach(e=>e.remove());
-  for(const id of ORDER){
-    const el = markEl(id); el.classList.remove("right","wrong"); el.classList.add(results[id]?"right":"wrong");
-    if(!results[id] && key[id]){ const k=document.createElement("span"); k.className="key"; k.textContent="✓ "+key[id]; el.after(k); }
-  }
-}
-function clearMarks(){
-  document.querySelectorAll(".key").forEach(e=>e.remove());
-  document.querySelectorAll(".right,.wrong").forEach(e=>e.classList.remove("right","wrong"));
-}
 function setLocked(on){ document.querySelectorAll("#lessons input,#lessons select").forEach(e=>e.disabled=on); }
+const $id = id => document.getElementById(id);
+const submitBtn = $id("submit"), startBtn = $id("start"), resultEl = $id("result");
+const post = body => fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(body)}).then(r=>r.json());
+let token = null, deadline = 0, clockSkew = 0, timerId = null, finished = false, timeUp = false;
 
-const submitBtn = document.getElementById("submit"), resultEl = document.getElementById("result");
-function showError(msg){ resultEl.hidden=false; resultEl.innerHTML=`<p class="note err">${esc(msg)}</p>`; }
+/* ---- Leaving the page is counted (other tab / app / window) and sent with the answers ---- */
+const integrity = {leaves:0, awaySec:0, pastes:0}; let awaySince = null;
+function goAway(){ if(!token || finished || awaySince!==null) return; awaySince = Date.now(); integrity.leaves++; }
+function comeBack(){ if(awaySince===null) return; integrity.awaySec += Math.round((Date.now()-awaySince)/1000); awaySince = null; }
+document.addEventListener("visibilitychange", ()=> document.hidden ? goAway() : comeBack());
+window.addEventListener("blur", goAway);
+window.addEventListener("focus", comeBack);
+$id("lessons").addEventListener("paste", ()=>{ if(token && !finished) integrity.pastes++; });
+
+function finishedView(r){
+  finished = true; clearInterval(timerId); setLocked(true);
+  $id("bar").hidden = true; $id("start-msg").hidden = true; startBtn.hidden = true;
+  resultEl.hidden = false;
+  resultEl.innerHTML = `<span class="eyebrow">終了済み · Finished</span><h2>${r.expired?"時間切れです":"このテストは既に提出済みです"}</h2><p class="note err">${esc(r.error)}</p><p class="note">もう一度受けることはできません。間違いだと思う場合は先生に連絡してください。<br>You can take this quiz only once. If this is a mistake, please tell your teacher.</p>`;
+  resultEl.scrollIntoView({block:"start"});
+}
+
+/* ---- Start: the server records the start time; reloading does not reset the timer ---- */
+function startMsg(msg){ const m = $id("start-msg"); m.hidden = false; m.textContent = msg; }
+startBtn.addEventListener("click", ()=>{
+  const name = $id("sname").value.trim(), sid = $id("sid").value.trim(), email = $id("semail").value.trim();
+  if(!name || !sid){ startMsg("Please type your name and student number. 名前と学生番号を入力してください。"); $id(!name?"sname":"sid").focus(); return; }
+  if(!/^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i.test(email)){ startMsg("Please type your Reitaku University email (…@reitaku-u.ac.jp). 麗澤のメールアドレスを入力してください。"); $id("semail").focus(); return; }
+  if(!API_URL || API_URL.indexOf("script.google.com")<0){ startMsg("This quiz isn't connected to the score sheet yet. Please tell your teacher."); return; }
+  startBtn.disabled = true; startBtn.textContent = "Starting…"; $id("start-msg").hidden = true;
+  post({action:"start", name, studentNo: sid, email}).then(r=>{
+    if(r && (r.done || r.expired)){ document.querySelectorAll(".who input").forEach(e=>e.disabled=true); finishedView(r); return; }
+    if(!r || r.error || !r.token) throw new Error(r && r.error ? r.error : "Could not start.");
+    token = r.token; deadline = r.deadline; clockSkew = r.now - Date.now();
+    document.querySelectorAll(".limit").forEach(e=>e.textContent = r.limitMin);
+    document.querySelectorAll(".who input").forEach(e=>e.disabled=true);
+    startBtn.hidden = true; $id("lessons").hidden = false; $id("bar").hidden = false;
+    tick(); timerId = setInterval(tick, 1000);
+    $id("lessons").scrollIntoView({block:"start"});
+  }).catch(err=>{
+    startBtn.disabled = false; startBtn.textContent = "Start";
+    startMsg((err && err.message && err.message !== "Failed to fetch" ? err.message : "Could not connect. Check your internet connection and press Start again.") );
+  });
+});
+
+function tick(){
+  const left = Math.max(0, deadline - (Date.now() + clockSkew));
+  const m = Math.floor(left/60000), sec = Math.floor(left/1000)%60;
+  const t = $id("timer"); t.textContent = `${m}:${String(sec).padStart(2,"0")}`; t.classList.toggle("low", left < 3*60000);
+  if(left <= 0 && !finished){ clearInterval(timerId); timeUp = true; submit(); }
+}
+
+/* ---- Submit (by the button, or automatically when time is up) ---- */
+function submit(){
+  if(finished) return;
+  submitBtn.dataset.confirm=""; submitBtn.disabled=true; submitBtn.textContent="Sending…"; setLocked(true); comeBack();
+  const answers = {}; ORDER.forEach(id=>answers[id]=getVal(id));
+  const fail = msg => {
+    submitBtn.disabled=false; submitBtn.textContent="Submit";
+    if(!timeUp) setLocked(false);  // after time is up, answers stay locked; the student can only resend
+    resultEl.hidden=false; resultEl.innerHTML=`<p class="note err">${esc(msg)}</p>`;
+  };
+  post({token, answers, integrity}).then(r=>{
+    if(r && (r.done || r.expired)){ finishedView(r); return; }
+    if(!r || r.error){ fail(r && r.error ? r.error : "Your answers were not sent. Press Submit again."); return; }
+    finished = true; clearInterval(timerId);
+    resultEl.hidden=false;
+    resultEl.innerHTML = `
+      <span class="eyebrow">${timeUp?"Time is up · 時間になりました":"Your score"}</span>
+      <div class="score-big">${r.score}<small> / ${r.total}</small></div>
+      <div class="chips">${Object.entries(r.sections).map(([k,[a,b]])=>`<span class="chip">${SECS[k]} · ${a}/${b}</span>`).join("")}</div>
+      <p class="note ok">Sent to your teacher. 提出しました。</p>
+      <p class="note">正解は授業で先生が説明します。 · Your teacher will go over the answers in class.</p>`;
+    $id("bar").hidden = true;
+    resultEl.scrollIntoView({block:"start"});
+  }).catch(()=>fail("Your answers were not sent. Check your internet connection and press Submit again."));
+}
 submitBtn.addEventListener("click", ()=>{
-  const name = document.getElementById("sname").value.trim(), sid = document.getElementById("sid").value.trim(), email = document.getElementById("semail").value.trim();
-  if(!name || !sid){ showError("Please type your name and student number at the top before you submit."); document.getElementById(!name?"sname":"sid").focus(); return; }
-  if(!/^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i.test(email)){ showError("Please type your Reitaku University email (…@reitaku-u.ac.jp) at the top."); document.getElementById("semail").focus(); return; }
+  if(finished || submitBtn.disabled) return;
   const blanks = TOTAL - answeredCount();
-  if(blanks>0 && submitBtn.dataset.confirm!=="1"){
+  if(blanks>0 && !timeUp && submitBtn.dataset.confirm!=="1"){
     submitBtn.dataset.confirm="1"; submitBtn.textContent=`Submit with ${blanks} blank${blanks>1?"s":""}?`;
     setTimeout(()=>{ if(!submitBtn.disabled){submitBtn.dataset.confirm="";submitBtn.textContent="Submit";} },5000); return;
   }
-  submitBtn.dataset.confirm=""; submitBtn.disabled=true; submitBtn.textContent="Sending…"; setLocked(true);
-  const answers = {}; ORDER.forEach(id=>answers[id]=getVal(id));
-  const fail = msg => { setLocked(false); submitBtn.disabled=false; submitBtn.textContent="Submit"; showError(msg); };
-  if(!API_URL || API_URL.indexOf("script.google.com")<0){ fail("This quiz isn't connected to the score sheet yet. Please tell your teacher."); return; }
-  fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({name, studentNo: sid, email, answers})})
-    .then(res=>res.json())
-    .then(r=>{
-      if(r && r.done){
-        resultEl.hidden=false;
-        resultEl.innerHTML = `<span class="eyebrow">終了済み · Finished</span><h2>このテストは既に提出済みです</h2><p class="note err">${esc(r.error)}</p><p class="note">もう一度受けることはできません。間違いだと思う場合は先生に連絡してください。<br>You can take this quiz only once. If this is a mistake, please tell your teacher.</p>`;
-        submitBtn.hidden=true; resultEl.scrollIntoView({block:"start"}); return;
-      }
-      if(!r || r.error){ fail(r && r.error ? r.error : "Your answers were not sent. Press Submit again."); return; }
-      showMarks(r.results, r.key);
-      resultEl.hidden=false;
-      resultEl.innerHTML = `
-        <span class="eyebrow">Your score</span>
-        <div class="score-big">${r.score}<small> / ${r.total}</small></div>
-        <div class="chips">${Object.entries(r.sections).map(([k,[a,b]])=>`<span class="chip">${SECS[k]} · ${a}/${b}</span>`).join("")}</div>
-        <p class="note ok">Sent to your teacher. 提出しました（受験は1回のみです）。</p>
-        <p class="note">Wrong answers are marked in red with the correct answer beside them.</p>`;
-      submitBtn.hidden=true; submitBtn.disabled=false; submitBtn.textContent="Submit";
-      document.querySelectorAll(".who input").forEach(e=>e.disabled=true);
-      resultEl.scrollIntoView({block:"start"});
-    })
-    .catch(()=>fail("Your answers were not sent. Check your internet connection and press Submit again."));
+  submit();
 });
 </script>
 </body>

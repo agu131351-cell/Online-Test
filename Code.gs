@@ -13,13 +13,19 @@ const FIXED = ["Timestamp","Student No","Name","Attempt","Score","Total","Percen
 // Email is kept in the last column (after the answers) so sheets made before it was added keep working
 const EMAIL_COL = FIXED.length + Object.keys(SECS).length + ORDER.length * 2 + 1;
 const EMAIL_RE = /^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i; // Reitaku University addresses only
+// Columns after the answers, starting at EMAIL_COL
+const TAIL = ["Email", "Started", "Minutes", "Leaves", "Away (s)", "Pastes"];
+// Time limit in minutes: change it in Project Settings → Script properties → TIME_LIMIT_MIN (default 30)
+const DEFAULT_LIMIT_MIN = 30;
+const GRACE_MS = 90 * 1000; // extra time for slow connections after the limit
 
 // The quiz page (index.html) sends answers here; the teacher page (teacher.html) asks for results here.
 function doPost(e) {
   let out;
   try {
     const payload = JSON.parse(e.postData.contents);
-    out = payload && payload.action === "results" ? getResults(payload) : submitQuiz(payload);
+    const action = payload && payload.action;
+    out = action === "results" ? getResults(payload) : action === "start" ? startQuiz(payload) : submitQuiz(payload);
   } catch (err) {
     out = { error: "Your answers were not sent: " + (err && err.message ? err.message : err) };
   }
@@ -63,8 +69,10 @@ function setup() {
     res.setFrozenRows(1);
     res.setFrozenColumns(3);
   }
-  if (res.getMaxColumns() < EMAIL_COL) res.insertColumnsAfter(res.getMaxColumns(), EMAIL_COL - res.getMaxColumns());
-  if (res.getRange(1, EMAIL_COL).getValue() !== "Email") res.getRange(1, EMAIL_COL).setValue("Email").setFontWeight("bold");
+  const lastCol = EMAIL_COL + TAIL.length - 1;
+  if (res.getMaxColumns() < lastCol) res.insertColumnsAfter(res.getMaxColumns(), lastCol - res.getMaxColumns());
+  const tailHead = res.getRange(1, EMAIL_COL, 1, TAIL.length);
+  if (tailHead.getValues()[0].join("|") !== TAIL.join("|")) tailHead.setValues([TAIL]).setFontWeight("bold");
   if (!ss.getSheetByName("Summary")) {
     const sum = ss.insertSheet("Summary");
     const attemptCol = "Results!$D$2:$D";
@@ -90,22 +98,80 @@ function setup() {
   return res;
 }
 
-/** Called from the page. Grades on the server so the answer key never reaches students. */
-function submitQuiz(payload) {
+function limitMin_() {
+  const v = Number(PropertiesService.getScriptProperties().getProperty("TIME_LIMIT_MIN"));
+  return v > 0 ? v : DEFAULT_LIMIT_MIN;
+}
+
+/** "Starts" sheet: one row per student who pressed Start (the timer starts on the server). */
+function startsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let st = ss.getSheetByName("Starts");
+  if (!st) {
+    st = ss.insertSheet("Starts");
+    st.getRange(1, 1, 1, 5).setValues([["Started", "Student No", "Name", "Email", "Token"]]).setFontWeight("bold");
+    st.setFrozenRows(1);
+  }
+  return st;
+}
+
+function readIdentity_(payload) {
   const name = String(payload && payload.name || "").trim().slice(0, 100);
   const studentNo = String(payload && payload.studentNo || "").trim().slice(0, 40);
   const email = String(payload && payload.email || "").trim().toLowerCase().slice(0, 120);
-  const answers = (payload && payload.answers) || {};
   if (!name || !studentNo) throw new Error("Name and student number are required.");
   if (!EMAIL_RE.test(email)) throw new Error("Please use your Reitaku University email (…@reitaku-u.ac.jp).");
+  return { name: name, studentNo: studentNo, email: email };
+}
 
-  const results = {}, wrongKey = {}, sections = {};
+const doneMsg_ = f => ({ done: true, error: "終了済みです。この" + f[0] + "では既に提出されています。 / Already submitted (same " + f[1] + ")." });
+const lateMsg_ = () => ({ expired: true, error: "時間切れです。提出を受け付けられません。先生に連絡してください。 / Time is up; your answers could not be accepted. Please tell your teacher." });
+
+/**
+ * Called when the student presses Start. Records the start time on the server so the limit can't be
+ * reset by reloading the page: starting again with the same student number keeps the first start time.
+ * To let a student start over, delete their row on the "Starts" sheet.
+ */
+function startQuiz(payload) {
+  const id = readIdentity_(payload);
+  const limit = limitMin_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const done = findSubmitted_(setup(), id.name, id.studentNo, id.email);
+    if (done) return doneMsg_(done);
+    const st = startsSheet_();
+    const last = st.getLastRow();
+    const rows = last > 1 ? st.getRange(2, 1, last - 1, 5).getValues() : [];
+    let row = rows.find(r => key_(r[1]) === key_(id.studentNo));
+    if (!row) {
+      row = [new Date(), safe_(id.studentNo), safe_(id.name), id.email, Utilities.getUuid()];
+      st.appendRow(row);
+      st.getRange(st.getLastRow(), 2).setNumberFormat("@").setValue(safe_(id.studentNo));
+    }
+    const started = new Date(row[0]).getTime(), deadline = started + limit * 60000;
+    if (Date.now() > deadline + GRACE_MS) return lateMsg_();
+    return { token: row[4], startedAt: started, deadline: deadline, now: Date.now(), limitMin: limit };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Called from the page. Grades on the server so the answer key never reaches students. */
+function submitQuiz(payload) {
+  const token = String(payload && payload.token || "");
+  const answers = (payload && payload.answers) || {};
+  const integ = (payload && payload.integrity) || {};
+  const num = v => Math.max(0, Math.min(100000, Math.round(Number(v) || 0)));
+  if (!token) throw new Error("Please press Start first. / 先に Start を押してください。");
+
+  const sections = {}, results = {};
   let score = 0;
   ORDER.forEach(id => {
     const given = String(answers[id] || "").slice(0, 200);
     const ok = KEY[id].accept.some(a => norm_(a) === norm_(given));
     results[id] = ok;
-    if (ok) score++; else wrongKey[id] = KEY[id].display;
+    if (ok) score++;
     const sec = id.slice(0, 2);
     sections[sec] = sections[sec] || [0, 0];
     sections[sec][1]++; if (ok) sections[sec][0]++;
@@ -113,18 +179,26 @@ function submitQuiz(payload) {
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
-  const attempt = 1;
   try {
+    const st = startsSheet_();
+    const last = st.getLastRow();
+    const start = (last > 1 ? st.getRange(2, 1, last - 1, 5).getValues() : []).find(r => String(r[4]) === token);
+    if (!start) throw new Error("This test session was not found. Please reload the page and press Start again.");
+    // Identity comes from the Start record, not from the submitted form
+    const studentNo = String(start[1]).replace(/^'/, ""), name = String(start[2]).replace(/^'/, ""), email = String(start[3]);
     const res = setup();
     // One submission per student: refuse if the name, student number OR email was already used.
-    // To let a student retake, delete their row on the Results sheet.
+    // To let a student retake, delete their row on the Results sheet (and on the Starts sheet).
     const done = findSubmitted_(res, name, studentNo, email);
-    if (done) return { done: true, error: "終了済みです。この" + done[0] + "では既に提出されています。 / Already submitted (same " + done[1] + ")." };
-    const row = [new Date(), safe_(studentNo), safe_(name), attempt, score, ORDER.length, score / ORDER.length]
+    if (done) return doneMsg_(done);
+    const started = new Date(start[0]).getTime(), now = Date.now();
+    if (now > started + limitMin_() * 60000 + GRACE_MS) return lateMsg_();
+
+    const row = [new Date(), safe_(studentNo), safe_(name), 1, score, ORDER.length, score / ORDER.length]
       .concat(Object.keys(SECS).map(k => sections[k] ? sections[k][0] : ""))
       .concat(ORDER.map(id => results[id] ? 1 : 0))
       .concat(ORDER.map(id => safe_(String(answers[id] || "").slice(0, 200))))
-      .concat([email]);
+      .concat([email, new Date(started), Math.round((now - started) / 6000) / 10, num(integ.leaves), num(integ.awaySec), num(integ.pastes)]);
     // Student number stays text (keeps leading zeros) and percent shows as %
     res.appendRow(row);
     const r = res.getLastRow();
@@ -133,7 +207,8 @@ function submitQuiz(payload) {
   } finally {
     lock.releaseLock();
   }
-  return { score: score, total: ORDER.length, results: results, key: wrongKey, sections: sections, attempt: attempt };
+  // Only the score goes back: correct answers are shown on the teacher page, not to students
+  return { score: score, total: ORDER.length, sections: sections };
 }
 
 const key_ = v => String(v || "").replace(/^'/, "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -169,7 +244,7 @@ function getResults(payload) {
   const nSec = Object.keys(SECS).length;
   const okStart = FIXED.length + nSec;         // 0-based index of the first "✓" column
   const ansStart = okStart + ORDER.length;      // 0-based index of the first "ans" column
-  const rows = last > 1 ? res.getRange(2, 1, last - 1, EMAIL_COL).getValues() : [];
+  const rows = last > 1 ? res.getRange(2, 1, last - 1, EMAIL_COL + TAIL.length - 1).getValues() : [];
   const unq = v => typeof v === "string" && v.charAt(0) === "'" ? v.slice(1) : v; // undo safe_()
 
   const subs = rows.filter(r => r[1] !== "" || r[2] !== "").map(r => {
@@ -181,7 +256,11 @@ function getResults(payload) {
       time: r[0] instanceof Date ? r[0].toISOString() : String(r[0]),
       studentNo: String(unq(r[1])), name: String(unq(r[2])), email: String(r[EMAIL_COL - 1] || ""),
       attempt: Number(r[3]), score: Number(r[4]), total: Number(r[5]),
-      sections: sections, ok: ok, answers: ans
+      sections: sections, ok: ok, answers: ans,
+      minutes: r[EMAIL_COL] === "" ? null : Number(r[EMAIL_COL + 1]),
+      leaves: r[EMAIL_COL + 2] === "" ? null : Number(r[EMAIL_COL + 2]),
+      awaySec: r[EMAIL_COL + 3] === "" ? null : Number(r[EMAIL_COL + 3]),
+      pastes: r[EMAIL_COL + 4] === "" ? null : Number(r[EMAIL_COL + 4])
     };
   });
 
@@ -190,5 +269,5 @@ function getResults(payload) {
     key[id] = KEY[id].display;
     const s = id.slice(0, 2); secTotals[s] = (secTotals[s] || 0) + 1;
   });
-  return { order: ORDER, key: key, secs: SECS, secTotals: secTotals, submissions: subs };
+  return { order: ORDER, key: key, secs: SECS, secTotals: secTotals, limitMin: limitMin_(), submissions: subs };
 }

@@ -99,12 +99,12 @@ td.blank-ans{color:var(--muted)}
   <div id="app" hidden>
     <section class="sheet">
       <div class="row">
-        <div class="field"><label for="mode">Show</label>
+        <div class="field" hidden><label for="mode">Show</label>
           <select id="mode">
             <option value="first">First attempt only (1回目)</option>
             <option value="best">Best attempt (最高点)</option>
             <option value="latest">Latest attempt (最新)</option>
-            <option value="all">All attempts (すべて)</option>
+            <option value="all" selected>All attempts (すべて)</option>
           </select></div>
         <div class="field" style="flex:1;min-width:180px"><label for="q">Search</label><input id="q" type="search" placeholder="Name, student no. or email"></div>
         <button class="btn ghost" id="refresh">↻ Refresh</button>
@@ -123,7 +123,7 @@ td.blank-ans{color:var(--muted)}
     </div>
 
     <section class="sheet" data-panel="students">
-      <p class="note">行をクリックすると、その学生の解答がすべて表示されます。Click a row to see every answer.</p>
+      <p class="note">行をクリックすると、その学生の解答がすべて表示されます。Click a row to see every answer.<br>「離脱」= テスト中に他のタブ・アプリに切り替えた回数（赤 = 1回以上）。通知や画面ロックでも数えられることがあるので、目安として使ってください。</p>
       <div class="tbl-wrap" id="roster"></div>
       <div id="detail" hidden></div>
     </section>
@@ -214,15 +214,17 @@ function fmtTime(t){ const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocal
 
 function renderRoster(subs){
   const secKeys = Object.keys(DATA.secs);
-  const cols = [["studentNo","Student no",0],["name","Name",0],["email","Email",0],["attempt","Try",1],["score","Score",1]]
+  const cols = [["studentNo","Student no",0],["name","Name",0],["email","Email",0],["score","Score",1],["minutes","Time (min)",1],["leaves","Left page 離脱",1],["awaySec","Away (s)",1],["pastes","Pastes 貼付",1]]
     .concat(secKeys.map(k=>["sec:"+k, DATA.secs[k], 1])).concat([["time","Submitted",0]]);
-  const val = (s,k) => k.startsWith("sec:") ? Number(s.sections[k.slice(4)]) : s[k];
+  const val = (s,k) => k.startsWith("sec:") ? Number(s.sections[k.slice(4)]) : s[k] ?? -1;
+  const n = v => v==null ? "–" : v;
   subs.sort((a,b)=>{ const x=val(a,sortKey), y=val(b,sortKey); const c = typeof x==="number" ? x-y : String(x).localeCompare(String(y),"ja",{numeric:true}); return sortDir==="asc"?c:-c; });
   if(!subs.length){ $("#roster").innerHTML = `<div class="empty">まだ提出がありません。No submissions yet.</div>`; $("#detail").hidden=true; return; }
   $("#roster").innerHTML = `<table><thead><tr>${cols.map(([k,l,n])=>`<th class="sort${n?" num":""}" data-k="${k}"${k===sortKey?` data-dir="${sortDir}"`:""}>${esc(l)}</th>`).join("")}</tr></thead><tbody>
     ${subs.map((s,i)=>`<tr class="click${selected===s?" sel":""}" data-i="${i}">
-      <td class="mono">${esc(s.studentNo)}</td><td>${esc(s.name)}</td><td class="mono">${esc(s.email)}</td><td class="num">${s.attempt}</td>
+      <td class="mono">${esc(s.studentNo)}</td><td>${esc(s.name)}</td><td class="mono">${esc(s.email)}</td>
       <td class="num"><b>${s.score}</b> / ${s.total} (${Math.round(s.score/s.total*100)}%)</td>
+      <td class="num">${n(s.minutes)}</td><td class="num${s.leaves>0?" ng":""}">${n(s.leaves)}</td><td class="num${s.awaySec>0?" ng":""}">${n(s.awaySec)}</td><td class="num${s.pastes>0?" ng":""}">${n(s.pastes)}</td>
       ${secKeys.map(k=>`<td class="num">${esc(s.sections[k])}/${DATA.secTotals[k]}</td>`).join("")}
       <td class="mono">${fmtTime(s.time)}</td></tr>`).join("")}</tbody></table>`;
   $("#roster").querySelectorAll("th.sort").forEach(th=>th.addEventListener("click",()=>{
@@ -236,7 +238,8 @@ function renderDetail(s){
   const el = $("#detail");
   if(!s){ el.hidden = true; return; }
   el.hidden = false;
-  el.innerHTML = `<h2>${esc(s.name)} <span class="mono">(${esc(s.studentNo)}${s.email?" · "+esc(s.email):""})</span> — ${s.score}/${s.total}, attempt ${s.attempt}</h2>
+  el.innerHTML = `<h2>${esc(s.name)} <span class="mono">(${esc(s.studentNo)}${s.email?" · "+esc(s.email):""})</span> — ${s.score}/${s.total}</h2>
+    <p class="note">Time: ${s.minutes ?? "–"} min · Left the page: ${s.leaves ?? "–"} times (${s.awaySec ?? "–"} s away) · Pastes: ${s.pastes ?? "–"}</p>
     <div class="detail-grid">${DATA.order.map(id=>`<div class="ans ${s.ok[id]?"ok":"ng"}"><span class="id">${id} ${s.ok[id]?"✓":"✗"}</span>
       <span>${s.answers[id] ? esc(s.answers[id]) : "<i>(blank)</i>"}</span>${s.ok[id]?"":`<span class="k">✓ ${esc(DATA.key[id])}</span>`}</div>`).join("")}</div>`;
 }
@@ -245,7 +248,7 @@ function renderMatrix(subs){
   if(!subs.length){ $("#matrix").innerHTML = `<div class="empty">No submissions.</div>`; return; }
   const sorted = subs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),"ja"));
   $("#matrix").innerHTML = `<table><thead><tr><th class="stick">Name</th><th class="num">Score</th>${DATA.order.map(id=>`<th title="${esc(DATA.key[id])}">${id}<br><span class="mono" style="font-weight:400">${esc(DATA.key[id])}</span></th>`).join("")}</tr></thead><tbody>
-    ${sorted.map(s=>`<tr><td class="stick">${esc(s.name)}${$("#mode").value==="all"?` <span class="mono">#${s.attempt}</span>`:""}</td><td class="num">${s.score}</td>
+    ${sorted.map(s=>`<tr><td class="stick">${esc(s.name)}</td><td class="num">${s.score}</td>
       ${DATA.order.map(id=>`<td class="${s.answers[id]?(s.ok[id]?"ok":"ng"):"ng blank-ans"}">${s.answers[id]?esc(s.answers[id]):"—"}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
 
@@ -265,8 +268,8 @@ function renderItems(subs){
 /* CSV of what is currently shown: one row per submission, score + every answer */
 $("#csv").addEventListener("click", ()=>{
   const subs = visible(), q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
-  const head = ["Submitted","Student no","Name","Email","Attempt","Score","Total"].concat(DATA.order.map(id=>id)).concat(DATA.order.map(id=>"ok "+id));
-  const lines = [head.map(q).join(",")].concat(subs.map(s=>[fmtTime(s.time),s.studentNo,s.name,s.email,s.attempt,s.score,s.total]
+  const head = ["Submitted","Student no","Name","Email","Score","Total","Minutes","Left page","Away (s)","Pastes"].concat(DATA.order.map(id=>id)).concat(DATA.order.map(id=>"ok "+id));
+  const lines = [head.map(q).join(",")].concat(subs.map(s=>[fmtTime(s.time),s.studentNo,s.name,s.email,s.score,s.total,s.minutes,s.leaves,s.awaySec,s.pastes]
     .concat(DATA.order.map(id=>s.answers[id])).concat(DATA.order.map(id=>s.ok[id]?1:0)).map(q).join(",")));
   const blob = new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `quiz-results-${$("#mode").value}.csv`; a.click();
