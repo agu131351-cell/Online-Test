@@ -214,7 +214,7 @@ function fmtTime(t){ const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocal
 
 function renderRoster(subs){
   const secKeys = Object.keys(DATA.secs);
-  const cols = [["studentNo","Student no",0],["name","Name",0],["email","Email",0],["score","Score",1],["minutes","Time (min)",1],["leaves","Left page 離脱",1],["awaySec","Away (s)",1],["pastes","Pastes 貼付",1]]
+  const cols = [["studentNo","Student no",0],["name","Name",0],["email","Email",0],["score","Score",1],["minutes","Time (min)",1],["leaves","Left page 離脱",1],["awaySec","Away (s)",1],["pastes","Paste tries 貼付",1]]
     .concat(secKeys.map(k=>["sec:"+k, DATA.secs[k], 1])).concat([["time","Submitted",0]]);
   const val = (s,k) => k.startsWith("sec:") ? Number(s.sections[k.slice(4)]) : s[k] ?? -1;
   const n = v => v==null ? "–" : v;

@@ -94,6 +94,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .timer{font:700 22px var(--mono);font-variant-numeric:tabular-nums}
 .timer.low{color:var(--bad)}
 [hidden]{display:none!important}
+#lessons{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#lessons input{-webkit-user-select:text;user-select:text}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:8px 16px;border-radius:8px;font-size:14px;z-index:10;pointer-events:none;max-width:calc(100% - 32px);text-align:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -116,6 +119,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         <li><b>受験は1回のみ</b> · You can take this test only once.</li>
         <li><b>制限時間 <span class="limit">30</span> 分</b>。Start を押すと時間が始まり、時間になると自動で提出されます。 · <span class="limit">30</span> minutes. When time is up, your answers are sent automatically.</li>
         <li><b>テスト中に他のタブやアプリに切り替えると、先生に記録されます。</b> · Leaving this page (other tabs or apps) is recorded and your teacher can see it.</li>
+        <li><b>コピー・貼り付け・右クリックはできません。</b> · Copy, paste and right-click are turned off during the test.</li>
       </ul>
       <div class="row-actions"><button class="btn" id="start">Start</button></div>
       <p class="note err" id="start-msg" hidden></p>
@@ -259,7 +263,21 @@ function comeBack(){ if(awaySince===null) return; integrity.awaySec += Math.roun
 document.addEventListener("visibilitychange", ()=> document.hidden ? goAway() : comeBack());
 window.addEventListener("blur", goAway);
 window.addEventListener("focus", comeBack);
-$id("lessons").addEventListener("paste", ()=>{ if(token && !finished) integrity.pastes++; });
+/* ---- No copy, cut, paste, drag-and-drop or right-click (long-press) in the questions ---- */
+let toastTimer = null;
+function toast(msg){
+  let t = document.querySelector(".toast");
+  if(!t){ t = document.createElement("div"); t.className = "toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.hidden = true, 2000);
+}
+const BLOCK_MSG = "コピー・貼り付け・右クリックはできません · Copy, paste and right-click are turned off";
+["copy","cut","paste","contextmenu","dragstart","drop"].forEach(type=>{
+  $id("lessons").addEventListener(type, e=>{
+    e.preventDefault();
+    if(type==="paste" && token && !finished) integrity.pastes++;  // tried to paste: still recorded for the teacher
+    toast(BLOCK_MSG);
+  });
+});
 
 function finishedView(r){
   finished = true; clearInterval(timerId); setLocked(true);
