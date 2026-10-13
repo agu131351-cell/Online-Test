@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit 6 Grammar Quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one workbook column; lessons stack as "pages", a sticky score bar follows. The teacher view is teacher.html */
+:root{
+  --paper:#f3f6fb; --sheet:#ffffff; --ink:#18223a; --muted:#5b6782; --rule:#d5dcea;
+  --accent:#2448c9; --accent-ink:#ffffff; --mark:#ffe46b; --ok:#167a4a; --ok-bg:#e2f4ea; --bad:#b4282f; --bad-bg:#fbe6e7;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f1422; --sheet:#171e30; --ink:#e6ebf7; --muted:#9aa6c2; --rule:#2c3650;
+  --accent:#7d9bff; --accent-ink:#0f1422; --mark:#6b5a12; --ok:#5fd39a; --ok-bg:#163527; --bad:#ff8a8f; --bad-bg:#3d1c20; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1422; --sheet:#171e30; --ink:#e6ebf7; --muted:#9aa6c2; --rule:#2c3650;
+  --accent:#7d9bff; --accent-ink:#0f1422; --mark:#6b5a12; --ok:#5fd39a; --ok-bg:#163527; --bad:#ff8a8f; --bad-bg:#3d1c20; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--body);padding-inline:16px;padding-block:24px 96px}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 clamp(28px,6vw,42px)/1.05 var(--display);margin:0;text-wrap:balance}
+h2{font:800 22px/1.2 var(--display);margin:0}
+h3{font:600 17px/1.3 var(--display);margin:0;display:flex;gap:10px;align-items:baseline}
+h3 .tag{font:500 13px var(--mono);background:var(--ink);color:var(--paper);border-radius:4px;padding:1px 7px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:600 15px var(--display);border:1.5px solid var(--rule);background:var(--sheet);color:var(--ink);padding:8px 16px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:22px clamp(16px,4vw,32px);display:flex;flex-direction:column;gap:22px}
+.lesson-head{border-bottom:3px solid var(--ink);padding-bottom:10px;display:flex;flex-direction:column;gap:2px}
+.lesson-head .eyebrow{color:var(--accent)}
+.ex{display:flex;flex-direction:column;gap:12px}
+.instr{color:var(--muted);margin:0}
+ol.items{margin:0;padding-left:1.6em;display:flex;flex-direction:column;gap:12px}
+ol.items li{padding-left:4px}
+.convo{display:grid;grid-template-columns:auto 1fr;gap:4px 10px}
+.convo b{font-family:var(--display)}
+.para{line-height:2.4;margin:0}
+input.blank,select.blank{font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:2px solid var(--muted);padding:0 4px;margin:0 2px;min-width:5.5em;max-width:100%;border-radius:0}
+input.blank.w{width:9em} input.blank.xw{width:min(17em,100%)} input.blank.s{width:4.5em;min-width:4.5em}
+select.blank{cursor:pointer}
+input.blank:focus,select.blank:focus{outline:none;background:var(--mark);border-bottom-color:var(--accent)}
+.given{font-family:"Caveat",var(--body);font-style:italic;color:var(--accent);border-bottom:2px solid var(--rule);padding:0 8px}
+.pick{display:inline-flex;gap:4px;vertical-align:middle;flex-wrap:wrap}
+.pick label{border:1.5px solid var(--rule);border-radius:6px;padding:1px 9px;cursor:pointer;font-style:italic}
+.pick input{position:absolute;opacity:0;pointer-events:none}
+.pick input:checked+span{font-weight:700}
+.pick label:has(input:checked){border-color:var(--accent);background:var(--mark)}
+.pick label:has(input:focus-visible){outline:2px solid var(--accent)}
+.blank.right,.pick.right label:has(input:checked){border-color:var(--ok)!important;background:var(--ok-bg)}
+.blank.wrong,.pick.wrong label:has(input:checked){border-color:var(--bad)!important;background:var(--bad-bg)}
+.pick.wrong:not(:has(input:checked)) label{border-color:var(--bad)}
+.key{font:500 12px var(--mono);color:var(--ok);margin-left:4px;white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;font-size:15px}
+th,td{border:1px solid var(--rule);padding:6px 10px;text-align:left;vertical-align:top}
+thead th{background:var(--ink);color:var(--paper);font-family:var(--display);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.who{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.field input{font:inherit;color:var(--ink);background:var(--paper);border:1.5px solid var(--rule);border-radius:6px;padding:8px 10px}
+.field input:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--sheet);border-top:1px solid var(--rule);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
+.bar-in{max-width:820px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.meter{flex:1;min-width:140px;display:flex;flex-direction:column;gap:4px;font:500 13px var(--mono);color:var(--muted)}
+.meter i{display:block;height:6px;background:var(--rule);border-radius:3px;overflow:hidden}
+.meter i b{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+.btn{font:700 16px var(--display);border:0;border-radius:8px;padding:10px 20px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--rule)}
+.btn:focus-visible,.tabs button:focus-visible{outline:3px solid var(--mark);outline-offset:2px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.result{display:flex;flex-direction:column;gap:10px}
+.score-big{font:800 56px/1 var(--display);font-variant-numeric:tabular-nums}
+.score-big small{font-size:24px;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:500 13px var(--mono);border:1px solid var(--rule);border-radius:999px;padding:3px 10px;font-variant-numeric:tabular-nums}
+.note{font-size:14px;color:var(--muted);margin:0}
+.note.err{color:var(--bad)}
+.note.ok{color:var(--ok)}
+.pct{display:inline-block;min-width:3.2em}
+.hbar{display:inline-block;height:8px;border-radius:2px;background:var(--accent);vertical-align:middle}
+.hbar.low{background:var(--bad)}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1.5px dashed var(--rule);border-radius:8px}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">StartUp Level 1 · Unit 6 · Grammar Practice</div>
+    <h1>Simple Present: Statements &amp; Questions</h1>
+    <p class="instr">Three short lessons, 63 points. Type or choose your answers, then press <b>Submit</b> at the bottom. Your score is sent to your teacher.</p>
+  </header>
+
+  <div id="quiz-view" class="wrap" style="max-width:none">
+    <section class="sheet">
+      <div class="who">
+        <div class="field"><label for="sname">Name</label><input id="sname" autocomplete="name" placeholder="Taro Yamada"></div>
+        <div class="field"><label for="sid">Student number</label><input id="sid" placeholder="e.g. 2512345" inputmode="numeric"></div>
+      </div>
+    </section>
+    <div id="lessons" class="wrap" style="max-width:none"></div>
+    <section class="sheet result" id="result" hidden></section>
+  </div>
+</div>
+
+<div class="bar"><div class="bar-in">
+  <div class="meter"><span id="prog-txt">0 / 63 answered</span><i><b id="prog"></b></i></div>
+  <div class="row-actions"><button class="btn ghost" id="retry" hidden>Try again</button><button class="btn" id="submit">Submit</button></div>
+</div></div>
+
+<script src="config.js"></script>
+<script>
+
+const BANK1 = ["eats","go","play","stays up","works"];
+// [[id|kind]] marks a blank; the answer key is on the server (Code.gs)
+const L = [
+ {code:"Lesson 1", page:"p. 56", title:"Simple present: affirmative and negative statements", ex:[
+  {tag:"A", instr:'Complete the paragraph. Use the words in the box: <span class="chip">eat</span> <span class="chip">eats</span> <span class="chip">go</span> <span class="chip">play</span> <span class="chip">stays up</span> <span class="chip">works</span>',
+   para:'My brother and I have different routines. I <span class="given">eat</span> dinner at home every day. He [[1A2|s]] out. I [[1A3|s]] computer games in the evening. He [[1A4|s]]. I [[1A5|s]] to bed early. He [[1A6|s]] late.'},
+  {tag:"B", instr:"Complete the sentences. Choose the correct verbs.", items:[
+   'Dr. Chang drinks tea, but he [[1B1|p|doesn\'t drink/don\'t drink]] coffee.',
+   'I [[1B2|p|doesn\'t stay up/don\'t stay up]] late during the week.',
+   'My friends [[1B3|p|doesn\'t work/don\'t work]] on weekends.',
+   'We [[1B4|p|doesn\'t watch/don\'t watch]] sad movies.',
+   'Bashir [[1B5|p|doesn\'t have/don\'t have]] a pet.',
+   'My friends and I [[1B6|p|doesn\'t play/don\'t play]] soccer.']},
+  {tag:"C", instr:"Look at the chart. Complete the sentences about Jim’s and Lisa’s weekends. Write negative verbs.",
+   table:'<table><thead><tr><th></th><th>yes</th><th>no</th></tr></thead><tbody><tr><th>Jim</th><td>play tennis, eat out, go to bed early</td><td>work, study, cook, watch tennis</td></tr><tr><th>Lisa</th><td>watch soccer, eat out, stay up late</td><td>work, study, cook, play soccer</td></tr></tbody></table>',
+   items:[
+   'Jim and Lisa <span class="given">don’t work</span> on weekends. They relax.',
+   'They study during the week. They [[1C2|w]] on weekends.',
+   'Lisa watches soccer on TV, but she [[1C3|w]] soccer.',
+   'Jim plays tennis. He [[1C4|w]] tennis on TV.',
+   'Jim and Lisa eat out on weekends. They [[1C5|w]] dinner at home.',
+   'Jim cooks during the week, but he [[1C6|w]] on weekends.',
+   'Jim goes to bed early. He [[1C7|w]] late.'], start:1}
+ ]},
+ {code:"Lesson 2", page:"p. 58", title:"Simple present: Yes/No questions and short answers", ex:[
+  {tag:"A", instr:"Complete the conversations. Use <i>do, does, don’t,</i> and <i>doesn’t</i>.", convos:[
+   ['<span class="given">Do</span> you feel OK?','No, I [[2A1b|s5]]. I have a fever.'],
+   ['[[2A2a|s5]] Rafael feel OK?','No, he [[2A2b|s5]].'],
+   ['[[2A3a|s5]] the children have colds?','No, they [[2A3b|s5]].'],
+   ['[[2A4a|s5]] Mia have the flu?','Yes, she [[2A4b|s5]].'],
+   ['[[2A5a|s5]] you want water?','Yes, I [[2A5b|s5]].'],
+   ['[[2A6a|s5]] Ann feel better?','Yes, she [[2A6b|s5]].']]},
+  {tag:"B", instr:"Complete the questions. Use the correct forms of <i>do, feel,</i> or <i>have</i>. Then look at the list. Answer the questions. Use short answers.",
+   table:'<table><thead><tr><th>Name</th><th>Problem</th></tr></thead><tbody><tr><td>Teresa</td><td>nauseous</td></tr><tr><td>Bill</td><td>a headache</td></tr><tr><td>Jack</td><td>dizzy</td></tr><tr><td>Cora and Tim</td><td>stomachaches</td></tr><tr><td>Jane and Ted</td><td>the flu</td></tr></tbody></table>',
+   convos:[
+   ['<span class="given">Does</span> Teresa <span class="given">feel</span> nauseous?','<span class="given">Yes, she does</span>.'],
+   ['[[2B2a|s5]] Cora and Tim [[2B2b|s5]] stomachaches?','[[2B2c|xw]].'],
+   ['[[2B3a|s5]] Jack [[2B3b|s5]] a fever?','[[2B3c|xw]]. He [[2B3d|s5]] dizzy.'],
+   ['[[2B4a|s5]] Jane and Ted [[2B4b|s5]] the flu?','[[2B4c|xw]].'],
+   ['[[2B5a|s5]] Bill [[2B5b|s5]] a fever?','[[2B5c|xw]]. He [[2B5d|s5]] a headache.']]}
+ ]},
+ {code:"Lesson 3", page:"p. 60", title:"Simple present: Wh- questions and answers", ex:[
+  {tag:"A", instr:"Complete each question. Write <i>Where does</i> or <i>Where do</i>.", items:[
+   '<span class="given">Where does</span> your teacher live?',
+   '[[3A2|w]] your brother study English?',
+   '[[3A3|w]] your sisters go shopping?',
+   '[[3A4|w]] Garret and Tom play soccer?',
+   '[[3A5|w]] your parents go dancing?',
+   '[[3A6|w]] you go out for lunch?']},
+  {tag:"B", instr:"Complete each conversation.", convos:[
+   ['Where <span class="given">do</span> you live?','I live <span class="given">at</span> 12 Milton Street.'],
+   ['Where [[3B2a|s5]] your boss live?','She lives [[3B2b|s5]] an apartment building [[3B2c|s5]] 30th Street.'],
+   ['Where [[3B3a|s5]] your friends work?','They work [[3B3b|s5]] an office building near the park. Their office is [[3B3c|s5]] the third floor.'],
+   ['Where [[3B4a|s5]] Lance work?','He works [[3B4b|s5]] a pharmacy.'],
+   ['Where [[3B5a|s5]] you go out for dinner?','Me? I go to a nice Chinese restaurant [[3B5b|s5]] the mall.'],
+   ['Where [[3B6a|s5]] they exercise?','They exercise [[3B6b|s5]] home.']]},
+  {tag:"C", instr:"Read each conversation. Then complete the questions.", convos:[
+   ['When <span class="given">do you brush your teeth</span>?','I brush my teeth before breakfast and after dinner.'],
+   ['What time [[3C2|xw]]?','I get up at 8:00.'],
+   ['What time [[3C3|xw]]?','My parents come home at 7:00.'],
+   ['When [[3C4|xw]]?','My husband? He makes dinner at 8:00.'],
+   ['When [[3C5|xw]]?','Jeb and Lisa? They study before dinner.']]}
+ ]}
+];
+
+
+/* ---------- Render (answer key lives on the server) ---------- */
+const KIND = {}; const ORDER = [];
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function blank(tok){
+  const [id,kind,opts] = tok.split("|");
+  ORDER.push(id); KIND[id]=kind;
+  if(kind==="p"){
+    const o = opts.split("/");
+    return `<span class="pick" data-id="${id}" role="radiogroup">${o.map((x,i)=>`<label><input type="radio" name="${id}" id="${id}-${i}" value="${esc(x)}"><span>${esc(x)}</span></label>`).join('<span aria-hidden="true">/</span>')}</span>`;
+  }
+  if(kind==="s"){
+    return `<select class="blank" id="${id}" aria-label="Blank ${id}"><option value="">——</option>${BANK1.map(o=>`<option>${o}</option>`).join("")}</select>`;
+  }
+  const cls = kind==="xw"?"xw":kind==="s5"?"s":"w";
+  return `<input class="blank ${cls}" id="${id}" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Blank ${id}">`;
+}
+const fill = s => s.replace(/\[\[([^\]]+)\]\]/g,(_,t)=>blank(t));
+document.getElementById("lessons").innerHTML = L.map(les=>`
+  <section class="sheet">
+    <div class="lesson-head"><span class="eyebrow">Unit 6 · ${les.code} · ${les.page}</span><h2>${les.title}</h2></div>
+    ${les.ex.map(ex=>`<div class="ex">
+      <h3><span class="tag">${ex.tag}</span></h3>
+      <p class="instr">${ex.instr}</p>
+      ${ex.table?`<div class="tbl-wrap">${ex.table}</div>`:""}
+      ${ex.para?`<p class="para">${fill(ex.para)}</p>`:""}
+      ${ex.items?`<ol class="items">${ex.items.map(i=>`<li>${fill(i)}</li>`).join("")}</ol>`:""}
+      ${ex.convos?`<ol class="items">${ex.convos.map(([a,b])=>`<li><div class="convo"><b>A:</b><span>${fill(a)}</span><b>B:</b><span>${fill(b)}</span></div></li>`).join("")}</ol>`:""}
+    </div>`).join("")}
+  </section>`).join("");
+const TOTAL = ORDER.length;
+const SECS = {"1A":"L1 A","1B":"L1 B","1C":"L1 C","2A":"L2 A","2B":"L2 B","3A":"L3 A","3B":"L3 B","3C":"L3 C"};
+
+function getVal(id){
+  if(KIND[id]==="p"){ const c = document.querySelector(`input[name="${id}"]:checked`); return c?c.value:""; }
+  return document.getElementById(id).value;
+}
+const answeredCount = () => ORDER.filter(id=>getVal(id).trim()!=="").length;
+function updateProgress(){
+  const n = answeredCount();
+  document.getElementById("prog-txt").textContent = `${n} / ${TOTAL} answered`;
+  document.getElementById("prog").style.width = (n/TOTAL*100)+"%";
+}
+document.getElementById("lessons").addEventListener("input", updateProgress);
+document.getElementById("lessons").addEventListener("change", updateProgress);
+updateProgress();
+
+function markEl(id){ return KIND[id]==="p" ? document.querySelector(`.pick[data-id="${id}"]`) : document.getElementById(id); }
+function showMarks(results, key){
+  document.querySelectorAll(".key").forEach(e=>e.remove());
+  for(const id of ORDER){
+    const el = markEl(id); el.classList.remove("right","wrong"); el.classList.add(results[id]?"right":"wrong");
+    if(!results[id] && key[id]){ const k=document.createElement("span"); k.className="key"; k.textContent="✓ "+key[id]; el.after(k); }
+  }
+}
+function clearMarks(){
+  document.querySelectorAll(".key").forEach(e=>e.remove());
+  document.querySelectorAll(".right,.wrong").forEach(e=>e.classList.remove("right","wrong"));
+}
+function setLocked(on){ document.querySelectorAll("#lessons input,#lessons select").forEach(e=>e.disabled=on); }
+
+const submitBtn = document.getElementById("submit"), retryBtn = document.getElementById("retry"), resultEl = document.getElementById("result");
+function showError(msg){ resultEl.hidden=false; resultEl.innerHTML=`<p class="note err">${esc(msg)}</p>`; }
+submitBtn.addEventListener("click", ()=>{
+  const name = document.getElementById("sname").value.trim(), sid = document.getElementById("sid").value.trim();
+  if(!name || !sid){ showError("Please type your name and student number at the top before you submit."); document.getElementById(!name?"sname":"sid").focus(); return; }
+  const blanks = TOTAL - answeredCount();
+  if(blanks>0 && submitBtn.dataset.confirm!=="1"){
+    submitBtn.dataset.confirm="1"; submitBtn.textContent=`Submit with ${blanks} blank${blanks>1?"s":""}?`;
+    setTimeout(()=>{ if(!submitBtn.disabled){submitBtn.dataset.confirm="";submitBtn.textContent="Submit";} },5000); return;
+  }
+  submitBtn.dataset.confirm=""; submitBtn.disabled=true; submitBtn.textContent="Sending…"; setLocked(true);
+  const answers = {}; ORDER.forEach(id=>answers[id]=getVal(id));
+  const fail = msg => { setLocked(false); submitBtn.disabled=false; submitBtn.textContent="Submit"; showError(msg); };
+  if(!API_URL || API_URL.indexOf("script.google.com")<0){ fail("This quiz isn't connected to the score sheet yet. Please tell your teacher."); return; }
+  fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify({name, studentNo: sid, answers})})
+    .then(res=>res.json())
+    .then(r=>{
+      if(!r || r.error){ fail(r && r.error ? r.error : "Your answers were not sent. Press Submit again."); return; }
+      showMarks(r.results, r.key);
+      resultEl.hidden=false;
+      resultEl.innerHTML = `
+        <span class="eyebrow">Your score</span>
+        <div class="score-big">${r.score}<small> / ${r.total}</small></div>
+        <div class="chips">${Object.entries(r.sections).map(([k,[a,b]])=>`<span class="chip">${SECS[k]} · ${a}/${b}</span>`).join("")}</div>
+        <p class="note ok">Sent to your teacher (attempt ${r.attempt}).</p>
+        <p class="note">Wrong answers are marked in red with the correct answer beside them.</p>`;
+      submitBtn.hidden=true; retryBtn.hidden=false; submitBtn.disabled=false; submitBtn.textContent="Submit";
+      resultEl.scrollIntoView({block:"start"});
+    })
+    .catch(()=>fail("Your answers were not sent. Check your internet connection and press Submit again."));
+});
+retryBtn.addEventListener("click", ()=>{
+  clearMarks(); setLocked(false);
+  document.querySelectorAll("#lessons input.blank").forEach(e=>e.value="");
+  document.querySelectorAll("#lessons select").forEach(e=>e.value="");
+  document.querySelectorAll("#lessons input[type=radio]").forEach(e=>e.checked=false);
+  resultEl.hidden=true; retryBtn.hidden=true; submitBtn.hidden=false; updateProgress();
+  window.scrollTo({top:0});
+});
+</script>
+</body>
+</html>

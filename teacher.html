@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Quiz Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Teacher view: login → summary stats → tabs (Students / All answers / Item analysis). Same tokens as index.html */
+:root{
+  --paper:#f3f6fb; --sheet:#ffffff; --ink:#18223a; --muted:#5b6782; --rule:#d5dcea;
+  --accent:#2448c9; --accent-ink:#ffffff; --mark:#ffe46b; --ok:#167a4a; --ok-bg:#e2f4ea; --bad:#b4282f; --bad-bg:#fbe6e7;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#0f1422; --sheet:#171e30; --ink:#e6ebf7; --muted:#9aa6c2; --rule:#2c3650;
+  --accent:#7d9bff; --accent-ink:#0f1422; --mark:#6b5a12; --ok:#5fd39a; --ok-bg:#163527; --bad:#ff8a8f; --bad-bg:#3d1c20; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0f1422; --sheet:#171e30; --ink:#e6ebf7; --muted:#9aa6c2; --rule:#2c3650;
+  --accent:#7d9bff; --accent-ink:#0f1422; --mark:#6b5a12; --ok:#5fd39a; --ok-bg:#163527; --bad:#ff8a8f; --bad-bg:#3d1c20; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:16px/1.6 var(--body);padding:24px 16px 64px;margin:0}
+.wrap{max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+.eyebrow{font:500 12px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:800 clamp(26px,5vw,38px)/1.05 var(--display);margin:0}
+h2{font:800 20px/1.2 var(--display);margin:0}
+.sheet{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:20px clamp(14px,3vw,28px);display:flex;flex-direction:column;gap:16px;min-width:0}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--paper);border:1.5px solid var(--rule);border-radius:6px;padding:8px 10px}
+input:focus,select:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+.btn{font:700 15px var(--display);border:0;border-radius:8px;padding:9px 18px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--rule)}
+.btn:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--sheet);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.stat b{display:block;font:800 30px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font:500 12px var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{font:600 15px var(--display);border:1.5px solid var(--rule);background:var(--sheet);color:var(--ink);padding:7px 16px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.tbl-wrap{overflow:auto;max-height:70vh;max-width:100%;border:1px solid var(--rule);border-radius:8px}
+table{border-collapse:collapse;font-size:14px;width:max-content;min-width:100%}
+th,td{border-bottom:1px solid var(--rule);border-right:1px solid var(--rule);padding:6px 10px;text-align:left;white-space:nowrap}
+thead th{background:var(--ink);color:var(--paper);font-family:var(--display);font-weight:600;position:sticky;top:0;z-index:2}
+thead th.sort{cursor:pointer}
+thead th.sort::after{content:" ↕";opacity:.4}
+thead th[data-dir="asc"]::after{content:" ↑";opacity:1}
+thead th[data-dir="desc"]::after{content:" ↓";opacity:1}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--mark)}
+tbody tr.sel td{background:var(--mark)}
+.stick{position:sticky;left:0;background:var(--sheet);z-index:1}
+thead th.stick{z-index:3;background:var(--ink)}
+td.ok{background:var(--ok-bg);color:var(--ok)}
+td.ng{background:var(--bad-bg);color:var(--bad)}
+td.blank-ans{color:var(--muted)}
+.mono{font-family:var(--mono);font-size:13px}
+.hbar{display:inline-block;height:8px;border-radius:2px;background:var(--accent);vertical-align:middle;margin-right:8px}
+.hbar.low{background:var(--bad)}
+.note{font-size:14px;color:var(--muted);margin:0}
+.note.err{color:var(--bad)}
+.empty{padding:28px;text-align:center;color:var(--muted);border:1.5px dashed var(--rule);border-radius:8px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px}
+.ans{border:1px solid var(--rule);border-radius:6px;padding:6px 10px;font-size:14px;display:flex;flex-direction:column}
+.ans.ok{border-color:var(--ok);background:var(--ok-bg)}
+.ans.ng{border-color:var(--bad);background:var(--bad-bg)}
+.ans .id{font:500 11px var(--mono);color:var(--muted)}
+.ans .k{font:500 12px var(--mono);color:var(--ok)}
+.wrongs{font-size:13px;color:var(--muted);white-space:normal;min-width:16em}
+[hidden]{display:none!important}
+#app{display:flex;flex-direction:column;gap:20px;min-width:0}
+#app>*{min-width:0;max-width:100%}
+.wrap>*{min-width:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Teacher view · 教員用</div>
+    <h1>Unit 6 Grammar Quiz — Results</h1>
+  </header>
+
+  <section class="sheet" id="login">
+    <h2>パスワード / Password</h2>
+    <form class="row" id="login-form">
+      <div class="field"><label for="pw">Teacher password</label><input id="pw" type="password" autocomplete="current-password" required></div>
+      <button class="btn" id="login-btn">Show results</button>
+    </form>
+    <p class="note" id="login-msg"></p>
+  </section>
+
+  <div id="app" hidden>
+    <section class="sheet">
+      <div class="row">
+        <div class="field"><label for="mode">Show</label>
+          <select id="mode">
+            <option value="first">First attempt only (1回目)</option>
+            <option value="best">Best attempt (最高点)</option>
+            <option value="latest">Latest attempt (最新)</option>
+            <option value="all">All attempts (すべて)</option>
+          </select></div>
+        <div class="field" style="flex:1;min-width:180px"><label for="q">Search</label><input id="q" type="search" placeholder="Name or student no."></div>
+        <button class="btn ghost" id="refresh">↻ Refresh</button>
+        <button class="btn ghost" id="csv">⬇ CSV</button>
+        <button class="btn ghost" id="logout">Log out</button>
+      </div>
+      <p class="note" id="status"></p>
+    </section>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="students" aria-selected="true">Students 学生一覧</button>
+      <button role="tab" data-tab="matrix" aria-selected="false">All answers 全員の解答</button>
+      <button role="tab" data-tab="items" aria-selected="false">Item analysis 問題別</button>
+    </div>
+
+    <section class="sheet" data-panel="students">
+      <p class="note">行をクリックすると、その学生の解答がすべて表示されます。Click a row to see every answer.</p>
+      <div class="tbl-wrap" id="roster"></div>
+      <div id="detail" hidden></div>
+    </section>
+    <section class="sheet" data-panel="matrix" hidden>
+      <p class="note">緑 = 正解、赤 = 不正解。Green = correct, red = wrong. Header shows the correct answer.</p>
+      <div class="tbl-wrap" id="matrix"></div>
+    </section>
+    <section class="sheet" data-panel="items" hidden>
+      <p class="note">正答率の低い問題は赤で表示。Common wrong answers are listed so you can see typical mistakes.</p>
+      <div class="tbl-wrap" id="items"></div>
+    </section>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store = { get(k){ try{return sessionStorage.getItem(k);}catch(e){return null;} }, set(k,v){ try{sessionStorage.setItem(k,v);}catch(e){} }, del(k){ try{sessionStorage.removeItem(k);}catch(e){} } };
+let DATA = null, password = "", sortKey = "name", sortDir = "asc", selected = null;
+
+function api(body){
+  if(!API_URL || API_URL.indexOf("script.google.com")<0) return Promise.reject(new Error("config.js に Apps Script の URL がまだ設定されていません。"));
+  return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(r=>{ if(r && r.error) throw new Error(r.error); return r; });
+}
+
+function load(){
+  const btns = [$("#login-btn"), $("#refresh")]; btns.forEach(b=>b.disabled=true);
+  $("#status").textContent = "Loading…";
+  return api({action:"results", password}).then(d=>{
+    DATA = d; store.set("tpw", password);
+    $("#login").hidden = true; $("#app").hidden = false;
+    $("#status").textContent = `${d.submissions.length} submissions · updated ${new Date().toLocaleTimeString()}`;
+    render();
+  }).catch(err=>{
+    if($("#app").hidden){ $("#login-msg").className="note err"; $("#login-msg").textContent = err.message; store.del("tpw"); }
+    else { $("#status").className="note err"; $("#status").textContent = err.message; }
+  }).finally(()=>btns.forEach(b=>b.disabled=false));
+}
+
+$("#login-form").addEventListener("submit", e=>{ e.preventDefault(); password = $("#pw").value; $("#login-msg").textContent=""; load(); });
+$("#refresh").addEventListener("click", ()=>{ $("#status").className="note"; load(); });
+$("#logout").addEventListener("click", ()=>{ store.del("tpw"); location.reload(); });
+$("#mode").addEventListener("change", render);
+$("#q").addEventListener("input", render);
+document.querySelectorAll(".tabs button").forEach(b=>b.addEventListener("click", ()=>{
+  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", x===b));
+  document.querySelectorAll("[data-panel]").forEach(p=>p.hidden = p.dataset.panel !== b.dataset.tab);
+}));
+
+/* Pick which submissions to show according to the "Show" setting */
+function visible(){
+  const mode = $("#mode").value, q = $("#q").value.trim().toLowerCase();
+  let subs = DATA.submissions.slice();
+  if(mode==="first") subs = subs.filter(s=>s.attempt===1);
+  else if(mode==="best" || mode==="latest"){
+    const by = {};
+    subs.forEach(s=>{
+      const cur = by[s.studentNo];
+      if(!cur || (mode==="best" ? s.score>cur.score || (s.score===cur.score && s.attempt<cur.attempt) : s.attempt>cur.attempt)) by[s.studentNo]=s;
+    });
+    subs = Object.values(by);
+  }
+  if(q) subs = subs.filter(s=>(s.name+" "+s.studentNo).toLowerCase().includes(q));
+  return subs;
+}
+
+function render(){
+  const subs = visible();
+  renderStats(subs); renderRoster(subs); renderMatrix(subs); renderItems(subs);
+}
+
+function renderStats(subs){
+  const total = DATA.order.length, sc = subs.map(s=>s.score);
+  const avg = sc.length ? sc.reduce((a,b)=>a+b,0)/sc.length : 0;
+  const students = new Set(DATA.submissions.map(s=>s.studentNo)).size;
+  $("#stats").innerHTML = [
+    ["Students 受験者", students],
+    ["Shown 表示中", subs.length],
+    ["Average 平均", sc.length ? `${avg.toFixed(1)} <small>/ ${total}</small>` : "–"],
+    ["Highest 最高", sc.length ? Math.max(...sc) : "–"],
+    ["Lowest 最低", sc.length ? Math.min(...sc) : "–"]
+  ].map(([l,v])=>`<div class="stat"><span>${l}</span><b>${v}</b></div>`).join("");
+}
+
+function fmtTime(t){ const d = new Date(t); return isNaN(d) ? esc(t) : d.toLocaleString(); }
+
+function renderRoster(subs){
+  const secKeys = Object.keys(DATA.secs);
+  const cols = [["studentNo","Student no",0],["name","Name",0],["attempt","Try",1],["score","Score",1]]
+    .concat(secKeys.map(k=>["sec:"+k, DATA.secs[k], 1])).concat([["time","Submitted",0]]);
+  const val = (s,k) => k.startsWith("sec:") ? Number(s.sections[k.slice(4)]) : s[k];
+  subs.sort((a,b)=>{ const x=val(a,sortKey), y=val(b,sortKey); const c = typeof x==="number" ? x-y : String(x).localeCompare(String(y),"ja",{numeric:true}); return sortDir==="asc"?c:-c; });
+  if(!subs.length){ $("#roster").innerHTML = `<div class="empty">まだ提出がありません。No submissions yet.</div>`; $("#detail").hidden=true; return; }
+  $("#roster").innerHTML = `<table><thead><tr>${cols.map(([k,l,n])=>`<th class="sort${n?" num":""}" data-k="${k}"${k===sortKey?` data-dir="${sortDir}"`:""}>${esc(l)}</th>`).join("")}</tr></thead><tbody>
+    ${subs.map((s,i)=>`<tr class="click${selected===s?" sel":""}" data-i="${i}">
+      <td class="mono">${esc(s.studentNo)}</td><td>${esc(s.name)}</td><td class="num">${s.attempt}</td>
+      <td class="num"><b>${s.score}</b> / ${s.total} (${Math.round(s.score/s.total*100)}%)</td>
+      ${secKeys.map(k=>`<td class="num">${esc(s.sections[k])}/${DATA.secTotals[k]}</td>`).join("")}
+      <td class="mono">${fmtTime(s.time)}</td></tr>`).join("")}</tbody></table>`;
+  $("#roster").querySelectorAll("th.sort").forEach(th=>th.addEventListener("click",()=>{
+    const k = th.dataset.k; sortDir = sortKey===k && sortDir==="asc" ? "desc" : "asc"; sortKey = k; renderRoster(visible());
+  }));
+  $("#roster").querySelectorAll("tr.click").forEach(tr=>tr.addEventListener("click",()=>{ selected = subs[+tr.dataset.i]; renderRoster(visible()); }));
+  renderDetail(subs.includes(selected) ? selected : null);
+}
+
+function renderDetail(s){
+  const el = $("#detail");
+  if(!s){ el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<h2>${esc(s.name)} <span class="mono">(${esc(s.studentNo)})</span> — ${s.score}/${s.total}, attempt ${s.attempt}</h2>
+    <div class="detail-grid">${DATA.order.map(id=>`<div class="ans ${s.ok[id]?"ok":"ng"}"><span class="id">${id} ${s.ok[id]?"✓":"✗"}</span>
+      <span>${s.answers[id] ? esc(s.answers[id]) : "<i>(blank)</i>"}</span>${s.ok[id]?"":`<span class="k">✓ ${esc(DATA.key[id])}</span>`}</div>`).join("")}</div>`;
+}
+
+function renderMatrix(subs){
+  if(!subs.length){ $("#matrix").innerHTML = `<div class="empty">No submissions.</div>`; return; }
+  const sorted = subs.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),"ja"));
+  $("#matrix").innerHTML = `<table><thead><tr><th class="stick">Name</th><th class="num">Score</th>${DATA.order.map(id=>`<th title="${esc(DATA.key[id])}">${id}<br><span class="mono" style="font-weight:400">${esc(DATA.key[id])}</span></th>`).join("")}</tr></thead><tbody>
+    ${sorted.map(s=>`<tr><td class="stick">${esc(s.name)}${$("#mode").value==="all"?` <span class="mono">#${s.attempt}</span>`:""}</td><td class="num">${s.score}</td>
+      ${DATA.order.map(id=>`<td class="${s.answers[id]?(s.ok[id]?"ok":"ng"):"ng blank-ans"}">${s.answers[id]?esc(s.answers[id]):"—"}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+function renderItems(subs){
+  if(!subs.length){ $("#items").innerHTML = `<div class="empty">No submissions.</div>`; return; }
+  const n = subs.length;
+  $("#items").innerHTML = `<table><thead><tr><th>Item</th><th>Section</th><th>Answer</th><th>% correct</th><th>Common wrong answers (count)</th></tr></thead><tbody>
+    ${DATA.order.map(id=>{
+      const right = subs.filter(s=>s.ok[id]).length, pct = Math.round(right/n*100);
+      const wrong = {}; subs.filter(s=>!s.ok[id]).forEach(s=>{ const a = s.answers[id].trim() || "(blank)"; wrong[a]=(wrong[a]||0)+1; });
+      const top = Object.entries(wrong).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([a,c])=>`${esc(a)} (${c})`).join(", ");
+      return `<tr><td class="mono">${id}</td><td>${esc(DATA.secs[id.slice(0,2)])}</td><td>${esc(DATA.key[id])}</td>
+        <td><span class="hbar${pct<60?" low":""}" style="width:${pct}px"></span>${pct}% <span class="note">(${right}/${n})</span></td><td class="wrongs">${top}</td></tr>`;
+    }).join("")}</tbody></table>`;
+}
+
+/* CSV of what is currently shown: one row per submission, score + every answer */
+$("#csv").addEventListener("click", ()=>{
+  const subs = visible(), q = v => `"${String(v ?? "").replace(/"/g,'""')}"`;
+  const head = ["Submitted","Student no","Name","Attempt","Score","Total"].concat(DATA.order.map(id=>id)).concat(DATA.order.map(id=>"ok "+id));
+  const lines = [head.map(q).join(",")].concat(subs.map(s=>[fmtTime(s.time),s.studentNo,s.name,s.attempt,s.score,s.total]
+    .concat(DATA.order.map(id=>s.answers[id])).concat(DATA.order.map(id=>s.ok[id]?1:0)).map(q).join(",")));
+  const blob = new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `quiz-results-${$("#mode").value}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+});
+
+const saved = store.get("tpw");
+if(saved){ password = saved; load(); }
+</script>
+</body>
+</html>
