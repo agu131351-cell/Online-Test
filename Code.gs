@@ -15,8 +15,8 @@ const EMAIL_COL = FIXED.length + Object.keys(SECS).length + ORDER.length * 2 + 1
 const EMAIL_RE = /^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i; // Reitaku University addresses only
 // Columns after the answers, starting at EMAIL_COL
 const TAIL = ["Email", "Started", "Minutes", "Leaves", "Away (s)", "Pastes"];
-// Time limit in minutes: change it in Project Settings → Script properties → TIME_LIMIT_MIN (default 30)
-const DEFAULT_LIMIT_MIN = 30;
+// Time limit in minutes: change it in Project Settings → Script properties → TIME_LIMIT_MIN (default 45)
+const DEFAULT_LIMIT_MIN = 45;
 const GRACE_MS = 90 * 1000; // extra time for slow connections after the limit
 
 // The quiz page (index.html) sends answers here; the teacher page (teacher.html) asks for results here.
