@@ -253,6 +253,9 @@ function setLocked(on){ document.querySelectorAll("#lessons input,#lessons selec
 const $id = id => document.getElementById(id);
 const submitBtn = $id("submit"), startBtn = $id("start"), resultEl = $id("result");
 const post = body => fetch(API_URL, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(body)}).then(r=>r.json());
+// Must match SCRIPT_VERSION in Code.gs. An older script would record "Start" as an empty (0-point) submission.
+const NEED_VERSION = 5;
+const OLD_SCRIPT_MSG = "先生へ：Apps Script（Code.gs）が古い版です。GitHub の最新の Code.gs を貼り直し、「デプロイを管理 → 新バージョン」で更新してください。 / Teacher: the Apps Script is out of date. Please tell your teacher.";
 let token = null, deadline = 0, clockSkew = 0, timerId = null, finished = false, timeUp = false;
 
 /* ---- Leaving the page is counted (other tab / app / window) and sent with the answers ---- */
@@ -294,7 +297,9 @@ startBtn.addEventListener("click", ()=>{
   if(!/^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i.test(email)){ startMsg("Please type your Reitaku University email (…@reitaku-u.ac.jp). 麗澤のメールアドレスを入力してください。"); $id("semail").focus(); return; }
   if(!API_URL || API_URL.indexOf("script.google.com")<0){ startMsg("This quiz isn't connected to the score sheet yet. Please tell your teacher."); return; }
   startBtn.disabled = true; startBtn.textContent = "Starting…"; $id("start-msg").hidden = true;
-  post({action:"start", name, studentNo: sid, email}).then(r=>{
+  fetch(API_URL + (API_URL.indexOf("?")<0 ? "?" : "&") + "check=1")
+    .then(r=>r.text()).then(t=>{ let v = 0; try{ v = JSON.parse(t).version || 0; }catch(e){} if(v < NEED_VERSION) throw new Error(OLD_SCRIPT_MSG); })
+    .then(()=>post({action:"start", name, studentNo: sid, email})).then(r=>{
     if(r && (r.done || r.expired)){ document.querySelectorAll(".who input").forEach(e=>e.disabled=true); finishedView(r); return; }
     if(!r || r.error || !r.token) throw new Error(r && r.error ? r.error : "Could not start.");
     token = r.token; deadline = r.deadline; clockSkew = r.now - Date.now();

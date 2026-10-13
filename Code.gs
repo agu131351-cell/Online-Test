@@ -17,6 +17,8 @@ const EMAIL_RE = /^[^\s@]+@([a-z0-9-]+\.)*reitaku-u\.ac\.jp$/i; // Reitaku Unive
 const TAIL = ["Email", "Started", "Minutes", "Leaves", "Away (s)", "Pastes"];
 // Time limit in minutes: change it in Project Settings → Script properties → TIME_LIMIT_MIN (default 45)
 const DEFAULT_LIMIT_MIN = 45;
+// Bump together with NEED_VERSION in index.html whenever the page needs new behaviour from this script
+const SCRIPT_VERSION = 5;
 const GRACE_MS = 90 * 1000; // extra time for slow connections after the limit
 
 // The quiz page (index.html) sends answers here; the teacher page (teacher.html) asks for results here.
@@ -33,9 +35,13 @@ function doPost(e) {
 }
 
 // Opening the web app URL in a browser just confirms it is running.
-function doGet() {
+// The quiz page calls ?check=1 before Start to make sure this script is the version it expects.
+function doGet(e) {
   setup();
-  return ContentService.createTextOutput("Unit 6 Grammar Quiz score sheet is ready.");
+  if (e && e.parameter && e.parameter.check) {
+    return ContentService.createTextOutput(JSON.stringify({ version: SCRIPT_VERSION })).setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput("Unit 6 Grammar Quiz score sheet is ready (version " + SCRIPT_VERSION + ").");
 }
 
 function norm_(s) {
@@ -269,5 +275,5 @@ function getResults(payload) {
     key[id] = KEY[id].display;
     const s = id.slice(0, 2); secTotals[s] = (secTotals[s] || 0) + 1;
   });
-  return { order: ORDER, key: key, secs: SECS, secTotals: secTotals, limitMin: limitMin_(), submissions: subs };
+  return { order: ORDER, key: key, secs: SECS, secTotals: secTotals, limitMin: limitMin_(), version: SCRIPT_VERSION, submissions: subs };
 }

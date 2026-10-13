@@ -158,6 +158,7 @@ function load(){
     DATA = d; store.set("tpw", password);
     $("#login").hidden = true; $("#app").hidden = false;
     $("#status").textContent = `${d.submissions.length} submissions · updated ${new Date().toLocaleTimeString()}`;
+    if(!d.version || d.version < 5){ $("#status").className="note err"; $("#status").textContent += " · ⚠ Apps Script が古い版です。最新の Code.gs を貼り直し、「デプロイを管理 → 新バージョン」で更新してください。生徒は Start できません。"; }
     render();
   }).catch(err=>{
     if($("#app").hidden){ $("#login-msg").className="note err"; $("#login-msg").textContent = err.message; store.del("tpw"); }
