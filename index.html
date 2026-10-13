@@ -340,8 +340,7 @@ function submit(){
       <span class="eyebrow">${timeUp?"Time is up · 時間になりました":"Your score"}</span>
       <div class="score-big">${r.score}<small> / ${r.total}</small></div>
       <div class="chips">${Object.entries(r.sections).map(([k,[a,b]])=>`<span class="chip">${SECS[k]} · ${a}/${b}</span>`).join("")}</div>
-      <p class="note ok">Sent to your teacher. 提出しました。</p>
-      <p class="note">正解は授業で先生が説明します。 · Your teacher will go over the answers in class.</p>`;
+      <p class="note ok">Sent to your teacher. 提出しました。</p>`;
     $id("bar").hidden = true;
     resultEl.scrollIntoView({block:"start"});
   }).catch(()=>fail("Your answers were not sent. Check your internet connection and press Submit again."));
